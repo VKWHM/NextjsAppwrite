@@ -1,10 +1,9 @@
 'use client'
-import React, {ChangeEvent, FormEvent, useState, JSX, useReducer} from 'react';
+import React, {ChangeEvent, FormEvent, useState, useReducer} from 'react';
 import Input from '@/components/Input';
 import Form from '@/components/Form';
 import axios from "axios";
-import {Simulate} from "react-dom/test-utils";
-import error = Simulate.error;
+import Alert from "@/components/Alert";
 
 export type UserData = {
     name: {
@@ -43,7 +42,6 @@ const initialUserData: UserData =  {
 }
 function user_reducer(state: UserData, {field, value, error}: HandleUserAction) {
     const newState: UserData = {...state};
-    if (field === undefined) return newState;
     newState[field].value = value;
     if (error !== undefined) {
         newState[field].error = error;
@@ -60,22 +58,24 @@ export default function Login() {
     const [user, dispatch]: [UserData, React.Dispatch<HandleUserAction>] = useReducer(user_reducer, initialUserData);
 
     const [loading, setLoading]: [boolean, React.Dispatch<boolean>] = useState(false);
-    const [message, setMessage]: [{msg: string, type: "error" | "success"}, React.Dispatch<{msg: string, color: "red" | "green"}>] = useState({msg: "", type: ""});
+    const [message, setMessage] = useState({text: "", color: "", icon: ""});
 
-    const submit_handler = (event: SubmitEvent) => {
+    const submit_handler = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!user.hasError) {
-            const {data, status} = axios.post<UserData>("/api/signup", user);
-            switch (status) {
-                case 200:
-                    setMessage({msg: data.message, color: "green"});
-                    break;
-                case 400:
-                    dispatch(data);
-                    setMessage({msg: data.error, color: "red"});
-                default:
-                    setMessage({msg: data.error, color: "red"});
-            }
+            axios.post("/api/signup", user)
+                .then(success => {
+                    const {data: {message, success: status}} = success;
+                    if (status) {
+                        setMessage({text: message, color: "green", icon: '✅'});
+                    } else {
+                        setMessage({text: "Ops! Somethings Wrong.", color: "red", icon: '⚠️'});
+                    }
+            }, error => {
+                    const {response: {data: {message}}} = error;
+                    setMessage({text: message, color: "red", icon: '⚠️'});
+                })
+            ;
         }
     }
 
@@ -130,16 +130,17 @@ export default function Login() {
         }
     };
 
+    // @ts-ignore
     return (
         <div className="flex flex-col items-center justify-center min-h-screen py-2 gap-6">
             <h1 className="text-3xl font-bold">Signup</h1>
             <hr className="w-1/2 border-t-2 border-gray-400" />
-            {message.msg && (
-                <p className={`border border-2 rounded px-4 py-2 text-black w-1/3 text-center bg-${message.color}-600 border-${message.color}-900`}>
-                    {message.msg}
-                </p>
-            )}
-            <Form action="" className={`flex flex-col items-center justify-center gap-2`} onSubmit={submit_handler}>
+                {message.text && (
+                    <div className="flex flex-col items-center justify-center">
+                        <Alert message={message} />
+                    </div>
+                )}
+            <Form onSubmit={submit_handler}>
                 <Input name={`username`} field={user.name} callback={validate_username} />
                 <Input name={`email`} field={user.email} callback={validate_email} />
                 <Input name={`password`} field={user.password} callback={validate_password} />
