@@ -1,6 +1,12 @@
 'use client'
 import React, {ChangeEvent, FormEvent, useState, JSX, useReducer} from 'react';
-type UserData = {
+import Input from '@/components/Input';
+import Form from '@/components/Form';
+import axios from "axios";
+import {Simulate} from "react-dom/test-utils";
+import error = Simulate.error;
+
+export type UserData = {
     name: {
         error: string,
         value: string,
@@ -13,7 +19,7 @@ type UserData = {
         error: string,
         value: string,
     },
-    hasError: boolean,
+    hasError?: boolean,
 }
 type HandleUserAction = {
     field: "name" | "email" | "password",
@@ -37,26 +43,40 @@ const initialUserData: UserData =  {
 }
 function user_reducer(state: UserData, {field, value, error}: HandleUserAction) {
     const newState: UserData = {...state};
+    if (field === undefined) return newState;
     newState[field].value = value;
     if (error !== undefined) {
         newState[field].error = error;
     }
     newState.hasError = false;
     for (const member of Object.values(newState)) {
-        if (member instanceof Object && member.error.length !== 0) {
+        if (typeof member !== "boolean" && member.error.length !== 0) {
             newState.hasError = true;
         }
     }
-    console.log(newState)
     return newState;
 }
 export default function Login() {
     const [user, dispatch]: [UserData, React.Dispatch<HandleUserAction>] = useReducer(user_reducer, initialUserData);
 
     const [loading, setLoading]: [boolean, React.Dispatch<boolean>] = useState(false);
+    const [message, setMessage]: [{msg: string, type: "error" | "success"}, React.Dispatch<{msg: string, color: "red" | "green"}>] = useState({msg: "", type: ""});
 
-    const submit_handler = (event: FormEvent<HTMLFormElement>) => {
+    const submit_handler = (event: SubmitEvent) => {
         event.preventDefault();
+        if (!user.hasError) {
+            const {data, status} = axios.post<UserData>("/api/signup", user);
+            switch (status) {
+                case 200:
+                    setMessage({msg: data.message, color: "green"});
+                    break;
+                case 400:
+                    dispatch(data);
+                    setMessage({msg: data.error, color: "red"});
+                default:
+                    setMessage({msg: data.error, color: "red"});
+            }
+        }
     }
 
     const validate_password = (event: ChangeEvent<HTMLInputElement>) => {
@@ -114,37 +134,18 @@ export default function Login() {
         <div className="flex flex-col items-center justify-center min-h-screen py-2 gap-6">
             <h1 className="text-3xl font-bold">Signup</h1>
             <hr className="w-1/2 border-t-2 border-gray-400" />
-            <form action="" className={`flex flex-col items-center justify-center gap-2`} onSubmit={submit_handler}>
+            {message.msg && (
+                <p className={`border border-2 rounded px-4 py-2 text-black w-1/3 text-center bg-${message.color}-600 border-${message.color}-900`}>
+                    {message.msg}
+                </p>
+            )}
+            <Form action="" className={`flex flex-col items-center justify-center gap-2`} onSubmit={submit_handler}>
                 <Input name={`username`} field={user.name} callback={validate_username} />
                 <Input name={`email`} field={user.email} callback={validate_email} />
                 <Input name={`password`} field={user.password} callback={validate_password} />
-                <button
-                    className="px-6 py-2 mt-4 text-white bg-indigo-500 rounded hover:bg-indigo-600 focus:outline-none focus:bg-indigo-600"
-                    type={`submit`}
-                >
-                    Submit
-                </button>
-            </form>
+            </Form>
         </div>
     );
 }
 
 
-function Input({name, field, callback}: {name: string, field: {value: string, error: string}, callback: (event: ChangeEvent<HTMLInputElement>) => void}): JSX.Element {
-    return (
-        <>
-            <div className="flex flex-col gap-1">
-                <label htmlFor={name} className="font-semibold capitalize">{name}</label>
-                <input
-                    type={name}
-                    id={name}
-                    name={name}
-                    value={field.value}
-                    onChange={callback}
-                    className={`w-full px-4 py-2 border rounded focus:outline-none ${field.error ? 'border-red-500' : 'border-gray-300'}`}
-                />
-            </div>
-            {field.error && <p className="text-red-500">{field.error}</p>}
-        </>
-    );
-}

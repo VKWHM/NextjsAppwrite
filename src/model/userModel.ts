@@ -2,8 +2,14 @@ import mongoose from 'mongoose';
 import {connect} from '@/dbConfig/dbConfig';
 
 connect();
-
-const userSchema = new mongoose.Schema({
+interface IUser {
+    username: string,
+    email: string,
+    password: string,
+    isValidated: boolean,
+    isAdmin: boolean,
+}
+const userSchema = new mongoose.Schema<IUser>({
     username: {
         type: String,
         required: [true, "Please provide a username"],
@@ -28,6 +34,6 @@ const userSchema = new mongoose.Schema({
     },
 })
 
-const User =  mongoose.models.users || mongoose.model("users", userSchema);
+const User = mongoose.models.users || mongoose.model("users", userSchema);
 
 export default User;
